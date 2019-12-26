@@ -183,6 +183,51 @@ func getLogger() *zap.Logger {
 	return logger
 }
 
+// Print log
+func Print(args ...interface{}) {
+	getLogger().Sugar().Info(args...)
+}
+
+// Printf log
+func Printf(template string, args ...interface{}) {
+	getLogger().Sugar().Infof(template, args...)
+}
+
+// Println log
+func Println(args ...interface{}) {
+	getLogger().Sugar().Info(args...)
+}
+
+// Fatal log
+func Fatal(args ...interface{}) {
+	getLogger().Sugar().Fatal(args...)
+}
+
+// Fatalf log
+func Fatalf(template string, args ...interface{}) {
+	getLogger().Sugar().Fatalf(template, args...)
+}
+
+// Fatalln log
+func Fatalln(args ...interface{}) {
+	getLogger().Sugar().Fatal(args...)
+}
+
+// Panic log
+func Panic(args ...interface{}) {
+	getLogger().Sugar().Panic(args...)
+}
+
+// Panicf log
+func Panicf(template string, args ...interface{}) {
+	getLogger().Sugar().Panicf(template, args...)
+}
+
+// Panicln log
+func Panicln(args ...interface{}) {
+	getLogger().Sugar().Panic(args...)
+}
+
 // Debug log
 func Debug(args ...interface{}) {
 	getLogger().Sugar().Debug(args...)
