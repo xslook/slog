@@ -2,6 +2,7 @@ package slog
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,27 @@ var once sync.Once
 const (
 	minFlushTick = 100 * time.Millisecond
 )
+
+func normalizeFilepath(dir, filename string) (string, error) {
+	if dirInfo, err := os.Stat(dir); err != nil {
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		if err = os.MkdirAll(dir, 0755); err != nil {
+			return "", err
+		}
+	} else if !dirInfo.IsDir() {
+		return "", fmt.Errorf("Filepath %s is not a valid directory", dir)
+	}
+	fs := filepath.Join(dir, filename)
+	_, err := os.Stat(fs)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+	}
+	return fs, nil
+}
 
 func initLogger(opts *Options) error {
 
@@ -39,13 +61,12 @@ func initLogger(opts *Options) error {
 		if opts.Dir == "" {
 			opts.Dir = "."
 		}
-		fs := filepath.Join(opts.Dir, opts.Filename)
-		_, err := os.Stat(fs)
+		filename, err := normalizeFilepath(opts.Dir, opts.Filename)
 		if err != nil {
 			return err
 		}
 		outWriter = zapcore.AddSync(&lumberjack.Logger{
-			Filename:   fs,
+			Filename:   filename,
 			LocalTime:  true,
 			MaxSize:    maxSize,
 			MaxBackups: maxBackups,
