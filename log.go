@@ -148,11 +148,8 @@ type Options struct {
 }
 
 // Init a logger
-func Init(opts *Options) *zap.Logger {
-
-	initLogger(opts)
-
-	return nil
+func Init(opts *Options) error {
+	return initLogger(opts)
 }
 
 func defaultOptions() *Options {
@@ -204,6 +201,11 @@ func getLogger() *zap.Logger {
 	return logger
 }
 
+// With zap fields
+func With(fileds ...zap.Field) *zap.Logger {
+	return getLogger().With(fileds...)
+}
+
 // Print log
 func Print(args ...interface{}) {
 	getLogger().Sugar().Info(args...)
@@ -229,6 +231,11 @@ func Fatalf(template string, args ...interface{}) {
 	getLogger().Sugar().Fatalf(template, args...)
 }
 
+// Fatalw log
+func Fatalw(msg string, keysAndValues ...interface{}) {
+	getLogger().Sugar().Fatalw(msg, keysAndValues...)
+}
+
 // Fatalln log
 func Fatalln(args ...interface{}) {
 	getLogger().Sugar().Fatal(args...)
@@ -242,6 +249,11 @@ func Panic(args ...interface{}) {
 // Panicf log
 func Panicf(template string, args ...interface{}) {
 	getLogger().Sugar().Panicf(template, args...)
+}
+
+// Panicw log
+func Panicw(msg string, keysAndValues ...interface{}) {
+	getLogger().Sugar().Panicw(msg, keysAndValues...)
 }
 
 // Panicln log
@@ -259,6 +271,11 @@ func Debugf(template string, args ...interface{}) {
 	getLogger().Sugar().Debugf(template, args...)
 }
 
+// Debugw log
+func Debugw(msg string, keysAndValues ...interface{}) {
+	getLogger().Sugar().Debugw(msg, keysAndValues...)
+}
+
 // Info log
 func Info(args ...interface{}) {
 	getLogger().Sugar().Info(args...)
@@ -267,6 +284,11 @@ func Info(args ...interface{}) {
 // Infof log
 func Infof(template string, args ...interface{}) {
 	getLogger().Sugar().Infof(template, args...)
+}
+
+// Infow log
+func Infow(msg string, keysAndValues ...interface{}) {
+	getLogger().Sugar().Infow(msg, keysAndValues...)
 }
 
 // Warn log
@@ -279,6 +301,11 @@ func Warnf(template string, args ...interface{}) {
 	getLogger().Sugar().Warnf(template, args...)
 }
 
+// Warns log
+func Warnw(msg string, keysAndValues ...interface{}) {
+	getLogger().Sugar().Warnw(msg, keysAndValues...)
+}
+
 // Error log
 func Error(args ...interface{}) {
 	getLogger().Sugar().Error(args...)
@@ -287,4 +314,9 @@ func Error(args ...interface{}) {
 // Errorf log
 func Errorf(template string, args ...interface{}) {
 	getLogger().Sugar().Errorf(template, args...)
+}
+
+// Errorw log
+func Errorw(msg string, keysAndValues ...interface{}) {
+	getLogger().Sugar().Errorw(msg, keysAndValues...)
 }
