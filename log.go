@@ -74,6 +74,22 @@ func initLogger(opts *Options) error {
 		})
 	}
 
+	var logLevel zapcore.Level
+	switch strings.ToLower(opts.Level) {
+	case "debug":
+		logLevel = zapcore.DebugLevel
+	case "info":
+		logLevel = zapcore.InfoLevel
+	case "warn":
+		logLevel = zapcore.WarnLevel
+	case "error":
+		logLevel = zapcore.ErrorLevel
+	case "fatal":
+		logLevel = zapcore.FatalLevel
+	default:
+		logLevel = zapcore.InfoLevel
+	}
+
 	if opts.Stdout {
 		if outWriter == nil {
 			outWriter = zapcore.AddSync(os.Stdout)
@@ -99,7 +115,7 @@ func initLogger(opts *Options) error {
 		EncodeDuration: zapcore.StringDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
-	core := zapcore.NewCore(zapcore.NewJSONEncoder(encoderConfig), outWriter, opts.Level)
+	core := zapcore.NewCore(zapcore.NewJSONEncoder(encoderConfig), outWriter, logLevel)
 	samplerCore := zapcore.NewSampler(core, time.Second, 100, 100)
 	logger = zap.New(samplerCore, zap.AddCaller(), zap.AddCallerSkip(1), zap.AddStacktrace(zap.DPanicLevel))
 	zap.ReplaceGlobals(logger)
@@ -121,21 +137,11 @@ func initLogger(opts *Options) error {
 	return nil
 }
 
-type Level = zapcore.Level
-
-const (
-	DebugLevel Level = zapcore.DebugLevel
-	InfoLevel  Level = zapcore.InfoLevel
-	WarnLevel  Level = zapcore.WarnLevel
-	ErrorLevel Level = zapcore.ErrorLevel
-	FatalLevel Level = zapcore.FatalLevel
-)
-
 // Options for logger
 type Options struct {
 	Dir       string
 	Filename  string
-	Level     Level
+	Level     string
 	Rotate    bool // rotate log file or not
 	LocalTime bool
 	Stdout    bool
@@ -159,27 +165,12 @@ func defaultOptions() *Options {
 	}
 	filename := os.Getenv("LOG_FILE")
 
-	var logLevel Level
 	level := os.Getenv("LOG_LEVEL")
-	switch strings.ToLower(level) {
-	case "debug":
-		logLevel = DebugLevel
-	case "info":
-		logLevel = InfoLevel
-	case "warn":
-		logLevel = WarnLevel
-	case "error":
-		logLevel = ErrorLevel
-	case "fatal":
-		logLevel = FatalLevel
-	default:
-		logLevel = InfoLevel
-	}
 	stdout := filename == ""
 	opts := &Options{
 		Dir:        dir,
 		Filename:   filename,
-		Level:      logLevel,
+		Level:      level,
 		LocalTime:  true,
 		Stdout:     stdout,
 		MaxSize:    200,
