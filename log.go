@@ -1,25 +1,19 @@
 package slog
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var logger *zap.Logger
-var once sync.Once
-
-const (
-	minFlushTick = 100 * time.Millisecond
-)
 
 func normalizeFilepath(dir, filename string) (string, error) {
 	if dirInfo, err := os.Stat(dir); err != nil {
@@ -61,17 +55,6 @@ func initLogger(opts *Options) error {
 		if opts.Dir == "" {
 			opts.Dir = "."
 		}
-		filename, err := normalizeFilepath(opts.Dir, opts.Filename)
-		if err != nil {
-			return err
-		}
-		outWriter = zapcore.AddSync(&lumberjack.Logger{
-			Filename:   filename,
-			LocalTime:  true,
-			MaxSize:    maxSize,
-			MaxBackups: maxBackups,
-			MaxAge:     maxAge,
-		})
 	}
 
 	var logLevel zapcore.Level
@@ -120,20 +103,6 @@ func initLogger(opts *Options) error {
 	logger = zap.New(samplerCore, zap.AddCaller(), zap.AddCallerSkip(1), zap.AddStacktrace(zap.DPanicLevel))
 	zap.ReplaceGlobals(logger)
 
-	once.Do(func() {
-		go func() {
-			flushTick := opts.FlushTick
-			if flushTick < minFlushTick {
-				flushTick = minFlushTick
-			}
-			ticker := time.NewTicker(flushTick)
-			for range ticker.C {
-				if logger != nil {
-					logger.Sync()
-				}
-			}
-		}()
-	})
 	return nil
 }
 
@@ -178,6 +147,47 @@ func defaultOptions() *Options {
 		MaxBackups: 2,
 	}
 	return opts
+}
+
+// Logger ...
+type Logger struct {
+	zlog *zap.Logger
+}
+
+// New a logger
+func New(opt *Options) *Logger {
+	return nil
+}
+
+type ctxLoggerKey string
+
+var ctxKey ctxLoggerKey = "logger"
+
+// Mix create a new context wrap this logger
+func (log *Logger) Mix(ctx context.Context) context.Context {
+	return context.WithValue(ctx, ctxKey, log)
+}
+
+// From try extract logger instance from context
+func From(ctx context.Context) *Logger {
+	val := ctx.Value(ctxKey)
+	if val == nil {
+		return nil
+	}
+	log, ok := val.(*Logger)
+	if !ok {
+		return nil
+	}
+	return log
+}
+
+// Field ...
+type Field = zap.Field
+
+// With fields
+func (log *Logger) With(fields ...Field) *Logger {
+	log.zlog = log.zlog.With(fields...)
+	return log
 }
 
 // GetLogger get a logger
@@ -292,7 +302,7 @@ func Warnf(template string, args ...interface{}) {
 	getLogger().Sugar().Warnf(template, args...)
 }
 
-// Warns log
+// Warnw log
 func Warnw(msg string, keysAndValues ...interface{}) {
 	getLogger().Sugar().Warnw(msg, keysAndValues...)
 }
