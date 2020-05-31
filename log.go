@@ -2,8 +2,10 @@ package slog
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,8 +14,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
-
-var logger *zap.Logger
 
 func normalizeFilepath(dir, filename string) (string, error) {
 	if dirInfo, err := os.Stat(dir); err != nil {
@@ -36,7 +36,7 @@ func normalizeFilepath(dir, filename string) (string, error) {
 	return fs, nil
 }
 
-func initLogger(opts *Options) error {
+func initLogger(opts *Option) (*zap.Logger, error) {
 
 	var outWriter zapcore.WriteSyncer
 	if opts.Filename != "" {
@@ -82,7 +82,7 @@ func initLogger(opts *Options) error {
 	}
 
 	if outWriter == nil {
-		return errors.New("No output writer")
+		return nil, errors.New("No output writer")
 	}
 
 	encoderConfig := zapcore.EncoderConfig{
@@ -100,14 +100,14 @@ func initLogger(opts *Options) error {
 	}
 	core := zapcore.NewCore(zapcore.NewJSONEncoder(encoderConfig), outWriter, logLevel)
 	samplerCore := zapcore.NewSampler(core, time.Second, 100, 100)
-	logger = zap.New(samplerCore, zap.AddCaller(), zap.AddCallerSkip(1), zap.AddStacktrace(zap.DPanicLevel))
+	logger := zap.New(samplerCore, zap.AddCaller(), zap.AddCallerSkip(1), zap.AddStacktrace(zap.DPanicLevel))
 	zap.ReplaceGlobals(logger)
 
-	return nil
+	return logger, nil
 }
 
-// Options for logger
-type Options struct {
+// Option for logger
+type Option struct {
 	Dir       string
 	Filename  string
 	Level     string
@@ -123,11 +123,12 @@ type Options struct {
 }
 
 // Init a logger
-func Init(opts *Options) error {
-	return initLogger(opts)
+func Init(opts *Option) error {
+	_, err := initLogger(opts)
+	return err
 }
 
-func defaultOptions() *Options {
+func defaultOption() *Option {
 	dir := os.Getenv("LOG_DIR")
 	if dir == "" {
 		dir = "."
@@ -136,7 +137,7 @@ func defaultOptions() *Options {
 
 	level := os.Getenv("LOG_LEVEL")
 	stdout := filename == ""
-	opts := &Options{
+	opts := &Option{
 		Dir:        dir,
 		Filename:   filename,
 		Level:      level,
@@ -154,9 +155,40 @@ type Logger struct {
 	zlog *zap.Logger
 }
 
+var _gLogger = newNoOp()
+
+func newNoOp() *Logger {
+	return &Logger{
+		zlog: zap.NewNop(),
+	}
+}
+
+func newTraceID() string {
+	var bts [16]byte
+	_, err := io.ReadFull(rand.Reader, bts[:])
+	if err != nil {
+		panic(err)
+	}
+	return string(bts[:])
+}
+
 // New a logger
-func New(opt *Options) *Logger {
-	return nil
+func New(opt *Option) (*Logger, error) {
+	zlog, err := initLogger(opt)
+	if err != nil {
+		return nil, err
+	}
+	logger := &Logger{
+		zlog: zlog,
+	}
+	return logger, nil
+}
+
+// clone a new logger
+func (log *Logger) clone() *Logger {
+	copy := *log
+	//copy.tid = newTraceID()
+	return &copy
 }
 
 type ctxLoggerKey string
@@ -165,159 +197,198 @@ var ctxKey ctxLoggerKey = "logger"
 
 // Mix create a new context wrap this logger
 func (log *Logger) Mix(ctx context.Context) context.Context {
-	return context.WithValue(ctx, ctxKey, log)
+	id := newTraceID()
+	return context.WithValue(ctx, ctxKey, id)
+}
+
+// NewContext create a new context mixed with logger
+func (log *Logger) NewContext() context.Context {
+	return log.Mix(context.Background())
 }
 
 // From try extract logger instance from context
 func From(ctx context.Context) *Logger {
 	val := ctx.Value(ctxKey)
 	if val == nil {
-		return nil
+		return _gLogger
 	}
 	log, ok := val.(*Logger)
 	if !ok {
-		return nil
+		return _gLogger
 	}
 	return log
 }
-
-// Field ...
-type Field = zap.Field
 
 // With fields
 func (log *Logger) With(fields ...Field) *Logger {
-	log.zlog = log.zlog.With(fields...)
-	return log
+	l := log.clone()
+	l.zlog = log.zlog.With(fields...)
+	return l
 }
 
-// GetLogger get a logger
-func getLogger() *zap.Logger {
-	if logger == nil {
-		opts := defaultOptions()
-		err := initLogger(opts)
-		if err != nil {
-			panic(err)
-		}
-	}
-	return logger
+// Named create a named logger
+func (log *Logger) Named(name string) *Logger {
+	l := log.clone()
+	l.zlog = log.zlog.Named(name)
+	return l
+}
+
+// Debug log
+func (log *Logger) Debug(msg string, fields ...Field) {
+	log.zlog.Debug(msg, fields...)
+}
+
+// Info log
+func (log *Logger) Info(msg string, fields ...Field) {
+	log.zlog.Info(msg, fields...)
+}
+
+// Warn log
+func (log *Logger) Warn(msg string, fields ...Field) {
+	log.zlog.Warn(msg, fields...)
+}
+
+// Error log
+func (log *Logger) Error(msg string, fields ...Field) {
+	log.zlog.Error(msg, fields...)
+}
+
+// DPanic log
+func (log *Logger) DPanic(msg string, fields ...Field) {
+	log.zlog.DPanic(msg, fields...)
+}
+
+// Panic log
+func (log *Logger) Panic(msg string, fields ...Field) {
+	log.zlog.Panic(msg, fields...)
+}
+
+// Fatal log
+func (log *Logger) Fatal(msg string, fields ...Field) {
+	log.zlog.Fatal(msg, fields...)
+}
+
+// Sync flush buffered logs
+func (log *Logger) Sync() error {
+	return log.zlog.Sync()
 }
 
 // With zap fields
-func With(fileds ...zap.Field) *zap.Logger {
-	return getLogger().With(fileds...)
+func With(fileds ...Field) *zap.Logger {
+	return zap.L().With(fileds...)
 }
 
 // Print log
 func Print(args ...interface{}) {
-	getLogger().Sugar().Info(args...)
+	zap.S().Info(args...)
 }
 
 // Printf log
 func Printf(template string, args ...interface{}) {
-	getLogger().Sugar().Infof(template, args...)
+	zap.S().Infof(template, args...)
 }
 
 // Println log
 func Println(args ...interface{}) {
-	getLogger().Sugar().Info(args...)
+	zap.S().Info(args...)
 }
 
 // Fatal log
 func Fatal(args ...interface{}) {
-	getLogger().Sugar().Fatal(args...)
+	zap.S().Fatal(args...)
 }
 
 // Fatalf log
 func Fatalf(template string, args ...interface{}) {
-	getLogger().Sugar().Fatalf(template, args...)
+	zap.S().Fatalf(template, args...)
 }
 
 // Fatalw log
 func Fatalw(msg string, keysAndValues ...interface{}) {
-	getLogger().Sugar().Fatalw(msg, keysAndValues...)
+	zap.S().Fatalw(msg, keysAndValues...)
 }
 
 // Fatalln log
 func Fatalln(args ...interface{}) {
-	getLogger().Sugar().Fatal(args...)
+	zap.S().Fatal(args...)
 }
 
 // Panic log
 func Panic(args ...interface{}) {
-	getLogger().Sugar().Panic(args...)
+	zap.S().Panic(args...)
 }
 
 // Panicf log
 func Panicf(template string, args ...interface{}) {
-	getLogger().Sugar().Panicf(template, args...)
+	zap.S().Panicf(template, args...)
 }
 
 // Panicw log
 func Panicw(msg string, keysAndValues ...interface{}) {
-	getLogger().Sugar().Panicw(msg, keysAndValues...)
+	zap.S().Panicw(msg, keysAndValues...)
 }
 
 // Panicln log
 func Panicln(args ...interface{}) {
-	getLogger().Sugar().Panic(args...)
+	zap.S().Panic(args...)
 }
 
 // Debug log
 func Debug(args ...interface{}) {
-	getLogger().Sugar().Debug(args...)
+	zap.S().Debug(args...)
 }
 
 // Debugf log
 func Debugf(template string, args ...interface{}) {
-	getLogger().Sugar().Debugf(template, args...)
+	zap.S().Debugf(template, args...)
 }
 
 // Debugw log
 func Debugw(msg string, keysAndValues ...interface{}) {
-	getLogger().Sugar().Debugw(msg, keysAndValues...)
+	zap.S().Debugw(msg, keysAndValues...)
 }
 
 // Info log
 func Info(args ...interface{}) {
-	getLogger().Sugar().Info(args...)
+	zap.S().Info(args...)
 }
 
 // Infof log
 func Infof(template string, args ...interface{}) {
-	getLogger().Sugar().Infof(template, args...)
+	zap.S().Infof(template, args...)
 }
 
 // Infow log
 func Infow(msg string, keysAndValues ...interface{}) {
-	getLogger().Sugar().Infow(msg, keysAndValues...)
+	zap.S().Infow(msg, keysAndValues...)
 }
 
 // Warn log
 func Warn(args ...interface{}) {
-	getLogger().Sugar().Warn(args...)
+	zap.S().Warn(args...)
 }
 
 // Warnf log
 func Warnf(template string, args ...interface{}) {
-	getLogger().Sugar().Warnf(template, args...)
+	zap.S().Warnf(template, args...)
 }
 
 // Warnw log
 func Warnw(msg string, keysAndValues ...interface{}) {
-	getLogger().Sugar().Warnw(msg, keysAndValues...)
+	zap.S().Warnw(msg, keysAndValues...)
 }
 
 // Error log
 func Error(args ...interface{}) {
-	getLogger().Sugar().Error(args...)
+	zap.S().Error(args...)
 }
 
 // Errorf log
 func Errorf(template string, args ...interface{}) {
-	getLogger().Sugar().Errorf(template, args...)
+	zap.S().Errorf(template, args...)
 }
 
 // Errorw log
 func Errorw(msg string, keysAndValues ...interface{}) {
-	getLogger().Sugar().Errorw(msg, keysAndValues...)
+	zap.S().Errorw(msg, keysAndValues...)
 }
