@@ -3,6 +3,7 @@ package slog
 import (
 	"context"
 	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -152,14 +153,14 @@ func defaultOption() *Option {
 
 // Logger ...
 type Logger struct {
-	zlog *zap.Logger
+	core *zap.Logger
 }
 
 var _gLogger = newNoOp()
 
 func newNoOp() *Logger {
 	return &Logger{
-		zlog: zap.NewNop(),
+		core: zap.L(),
 	}
 }
 
@@ -169,113 +170,120 @@ func newTraceID() string {
 	if err != nil {
 		panic(err)
 	}
-	return string(bts[:])
+	return hex.EncodeToString(bts[:])
 }
 
 // New a logger
 func New(opt *Option) (*Logger, error) {
-	zlog, err := initLogger(opt)
+	core, err := initLogger(opt)
 	if err != nil {
 		return nil, err
 	}
 	logger := &Logger{
-		zlog: zlog,
+		core: core,
 	}
 	return logger, nil
 }
 
 // clone a new logger
 func (log *Logger) clone() *Logger {
-	copy := *log
-	//copy.tid = newTraceID()
-	return &copy
+	cp := *log
+	return &cp
 }
 
-type ctxLoggerKey string
+type traceType string
 
-var ctxKey ctxLoggerKey = "logger"
+var (
+	traceKey traceType
+)
 
 // Mix create a new context wrap this logger
 func (log *Logger) Mix(ctx context.Context) context.Context {
 	id := newTraceID()
-	return context.WithValue(ctx, ctxKey, id)
+	return context.WithValue(ctx, traceKey, id)
 }
 
-// NewContext create a new context mixed with logger
-func (log *Logger) NewContext() context.Context {
-	return log.Mix(context.Background())
+// Trace create a new context mixed with logger
+func Trace(ctx context.Context) context.Context {
+	id := newTraceID()
+	return context.WithValue(ctx, traceKey, id)
 }
 
-// From try extract logger instance from context
-func From(ctx context.Context) *Logger {
-	val := ctx.Value(ctxKey)
+const (
+	dftTraceKey   = "_s"
+	dftLatencyKey = "_t"
+)
+
+// In try extract logger instance from context
+func In(ctx context.Context) *Logger {
+	val := ctx.Value(traceKey)
 	if val == nil {
-		return _gLogger
+		return _gLogger.With(String(dftTraceKey, newTraceID()))
 	}
-	log, ok := val.(*Logger)
+	v, ok := val.(string)
 	if !ok {
-		return _gLogger
+		return _gLogger.With(String(dftTraceKey, newTraceID()))
 	}
-	return log
+	return _gLogger.With(String(dftTraceKey, v))
 }
 
 // With fields
 func (log *Logger) With(fields ...Field) *Logger {
 	l := log.clone()
-	l.zlog = log.zlog.With(fields...)
+	l.core = log.core.With(fields...)
 	return l
 }
 
 // Named create a named logger
 func (log *Logger) Named(name string) *Logger {
 	l := log.clone()
-	l.zlog = log.zlog.Named(name)
+	l.core = log.core.Named(name)
 	return l
 }
 
 // Debug log
 func (log *Logger) Debug(msg string, fields ...Field) {
-	log.zlog.Debug(msg, fields...)
+	log.core.Debug(msg, fields...)
 }
 
 // Info log
 func (log *Logger) Info(msg string, fields ...Field) {
-	log.zlog.Info(msg, fields...)
+	log.core.Info(msg, fields...)
 }
 
 // Warn log
 func (log *Logger) Warn(msg string, fields ...Field) {
-	log.zlog.Warn(msg, fields...)
+	log.core.Warn(msg, fields...)
 }
 
 // Error log
 func (log *Logger) Error(msg string, fields ...Field) {
-	log.zlog.Error(msg, fields...)
+	log.core.Error(msg, fields...)
 }
 
 // DPanic log
 func (log *Logger) DPanic(msg string, fields ...Field) {
-	log.zlog.DPanic(msg, fields...)
+	log.core.DPanic(msg, fields...)
 }
 
 // Panic log
 func (log *Logger) Panic(msg string, fields ...Field) {
-	log.zlog.Panic(msg, fields...)
+	log.core.Panic(msg, fields...)
 }
 
 // Fatal log
 func (log *Logger) Fatal(msg string, fields ...Field) {
-	log.zlog.Fatal(msg, fields...)
+	log.core.Fatal(msg, fields...)
 }
 
 // Sync flush buffered logs
 func (log *Logger) Sync() error {
-	return log.zlog.Sync()
+	return log.core.Sync()
 }
 
 // With zap fields
-func With(fileds ...Field) *zap.Logger {
-	return zap.L().With(fileds...)
+func With(fileds ...Field) *Logger {
+	return _gLogger.With(fileds...)
 }
 
 // Print log

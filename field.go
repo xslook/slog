@@ -53,17 +53,7 @@ func Complex64(key string, val complex64) Field {
 
 // Complex64p field
 func Complex64p(key string, val *complex64) Field {
-	return Complex64p(key, val)
-}
-
-// Float64 field
-func Float64(key string, val float64) Field {
-	return Float64(key, val)
-}
-
-// Float64p field
-func Float64p(key string, val *float64) Field {
-	return zap.Float64p(key, val)
+	return zap.Complex64p(key, val)
 }
 
 // Float32 field
@@ -76,8 +66,43 @@ func Float32p(key string, val *float32) Field {
 	return zap.Float32p(key, val)
 }
 
+// Float64 field
+func Float64(key string, val float64) Field {
+	return zap.Float64(key, val)
+}
+
+// Float64p field
+func Float64p(key string, val *float64) Field {
+	return zap.Float64p(key, val)
+}
+
+// F32 field
+func F32(key string, val float32) Field {
+	return zap.Float32(key, val)
+}
+
+// F32p field
+func F32p(key string, val *float32) Field {
+	return zap.Float32p(key, val)
+}
+
+// F64 field
+func F64(key string, val float64) Field {
+	return zap.Float64(key, val)
+}
+
+// F64p field
+func F64p(key string, val *float64) Field {
+	return zap.Float64p(key, val)
+}
+
 // Int field
 func Int(key string, val int) Field {
+	return zap.Int(key, val)
+}
+
+// I field
+func I(key string, val int) Field {
 	return zap.Int(key, val)
 }
 
@@ -86,14 +111,49 @@ func Intp(key string, val *int) Field {
 	return zap.Intp(key, val)
 }
 
-// Int64 field
-func Int64(key string, val int64) Field {
-	return zap.Int64(key, val)
+// Ip field
+func Ip(key string, val *int) Field {
+	return zap.Intp(key, val)
 }
 
-// Int64p field
-func Int64p(key string, val *int64) Field {
-	return zap.Int64p(key, val)
+// Int8 field
+func Int8(key string, val int8) Field {
+	return zap.Int8(key, val)
+}
+
+// I8 field
+func I8(key string, val int8) Field {
+	return zap.Int8(key, val)
+}
+
+// Int8p field
+func Int8p(key string, val *int8) Field {
+	return zap.Int8p(key, val)
+}
+
+// I8p field
+func I8p(key string, val *int8) Field {
+	return zap.Int8p(key, val)
+}
+
+// Int16 field
+func Int16(key string, val int16) Field {
+	return zap.Int16(key, val)
+}
+
+// I16 field
+func I16(key string, val int16) Field {
+	return zap.Int16(key, val)
+}
+
+// Int16p field
+func Int16p(key string, val *int16) Field {
+	return zap.Int16p(key, val)
+}
+
+// I16p field
+func I16p(key string, val *int16) Field {
+	return zap.Int16p(key, val)
 }
 
 // Int32 field
@@ -106,24 +166,14 @@ func Int32p(key string, val *int32) Field {
 	return zap.Int32p(key, val)
 }
 
-// Int16 field
-func Int16(key string, val int16) Field {
-	return zap.Int16(key, val)
+// Int64 field
+func Int64(key string, val int64) Field {
+	return zap.Int64(key, val)
 }
 
-// Int16p field
-func Int16p(key string, val *int16) Field {
-	return zap.Int16p(key, val)
-}
-
-// Int8 field
-func Int8(key string, val int8) Field {
-	return zap.Int8(key, val)
-}
-
-// Int8p field
-func Int8p(key string, val *int8) Field {
-	return zap.Int8p(key, val)
+// Int64p field
+func Int64p(key string, val *int64) Field {
+	return zap.Int64p(key, val)
 }
 
 // Stringp field
@@ -141,24 +191,14 @@ func Uintp(key string, val *uint) Field {
 	return zap.Uintp(key, val)
 }
 
-// Uint64 field
-func Uint64(key string, val uint64) Field {
-	return zap.Uint64(key, val)
+// Uint8 field
+func Uint8(key string, val uint8) Field {
+	return zap.Uint8(key, val)
 }
 
-// Uint64p field
-func Uint64p(key string, val *uint64) Field {
-	return zap.Uint64p(key, val)
-}
-
-// Uint32 field
-func Uint32(key string, val uint32) Field {
-	return zap.Uint32(key, val)
-}
-
-// Uint32p field
-func Uint32p(key string, val *uint32) Field {
-	return zap.Uint32p(key, val)
+// Uint8p field
+func Uint8p(key string, val *uint8) Field {
+	return zap.Uint8p(key, val)
 }
 
 // Uint16 field
@@ -171,14 +211,24 @@ func Uint16p(key string, val *uint16) Field {
 	return zap.Uint16p(key, val)
 }
 
-// Uint8 field
-func Uint8(key string, val uint8) Field {
-	return zap.Uint8(key, val)
+// Uint32 field
+func Uint32(key string, val uint32) Field {
+	return zap.Uint32(key, val)
 }
 
-// Uint8p field
-func Uint8p(key string, val *uint8) Field {
-	return zap.Uint8p(key, val)
+// Uint32p field
+func Uint32p(key string, val *uint32) Field {
+	return zap.Uint32p(key, val)
+}
+
+// Uint64 field
+func Uint64(key string, val uint64) Field {
+	return zap.Uint64(key, val)
+}
+
+// Uint64p field
+func Uint64p(key string, val *uint64) Field {
+	return zap.Uint64p(key, val)
 }
 
 // Uintptr field
