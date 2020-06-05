@@ -1,4 +1,4 @@
-module github.com/xslook/slog
+module github.com/xslook/zg
 
 go 1.13
 

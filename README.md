@@ -1,4 +1,4 @@
-# slog
+# zg
 A simple golang log library.
 
 
