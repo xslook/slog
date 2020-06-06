@@ -11,6 +11,45 @@ import (
 // Field ...
 type Field = zap.Field
 
+// Alias
+var (
+	B  = Bool
+	Bp = Boolp
+
+	T  = Time
+	Tp = Timep
+
+	I    = Int
+	Ip   = Intp
+	I8   = Int8
+	I8p  = Int8p
+	I16  = Int16
+	I16p = Int16p
+	I32  = Int32
+	I32p = Int32p
+	I64  = Int64
+	I64p = Int64p
+
+	U    = Uint
+	Up   = Uintp
+	U8   = Uint8
+	U8p  = Uint8p
+	U16  = Uint16
+	U16p = Uint16p
+	U32  = Uint32
+	U32p = Uint32p
+	U64  = Uint64
+	U64p = Uint64p
+
+	F    = Float32
+	F32  = Float32
+	F32p = Float32p
+	F64  = Float64
+	F64p = Float64p
+
+	Str = zap.String
+)
+
 // Skip field
 func Skip() Field {
 	return zap.Skip()
@@ -76,33 +115,8 @@ func Float64p(key string, val *float64) Field {
 	return zap.Float64p(key, val)
 }
 
-// F32 field
-func F32(key string, val float32) Field {
-	return zap.Float32(key, val)
-}
-
-// F32p field
-func F32p(key string, val *float32) Field {
-	return zap.Float32p(key, val)
-}
-
-// F64 field
-func F64(key string, val float64) Field {
-	return zap.Float64(key, val)
-}
-
-// F64p field
-func F64p(key string, val *float64) Field {
-	return zap.Float64p(key, val)
-}
-
 // Int field
 func Int(key string, val int) Field {
-	return zap.Int(key, val)
-}
-
-// I field
-func I(key string, val int) Field {
 	return zap.Int(key, val)
 }
 
@@ -111,18 +125,8 @@ func Intp(key string, val *int) Field {
 	return zap.Intp(key, val)
 }
 
-// Ip field
-func Ip(key string, val *int) Field {
-	return zap.Intp(key, val)
-}
-
 // Int8 field
 func Int8(key string, val int8) Field {
-	return zap.Int8(key, val)
-}
-
-// I8 field
-func I8(key string, val int8) Field {
 	return zap.Int8(key, val)
 }
 
@@ -131,28 +135,13 @@ func Int8p(key string, val *int8) Field {
 	return zap.Int8p(key, val)
 }
 
-// I8p field
-func I8p(key string, val *int8) Field {
-	return zap.Int8p(key, val)
-}
-
 // Int16 field
 func Int16(key string, val int16) Field {
 	return zap.Int16(key, val)
 }
 
-// I16 field
-func I16(key string, val int16) Field {
-	return zap.Int16(key, val)
-}
-
 // Int16p field
 func Int16p(key string, val *int16) Field {
-	return zap.Int16p(key, val)
-}
-
-// I16p field
-func I16p(key string, val *int16) Field {
 	return zap.Int16p(key, val)
 }
 
@@ -294,4 +283,17 @@ func String(key, val string) Field {
 // Any field
 func Any(key string, val interface{}) Field {
 	return zap.Any(key, val)
+}
+
+// Err is shorthand for the common idiom NamedError("error", err).
+func Err(err error) Field {
+	return NamedError("error", err)
+}
+
+// NamedError field
+func NamedError(key string, err error) Field {
+	if err == nil {
+		return Skip()
+	}
+	return Field{Key: key, Type: zapcore.ErrorType, Interface: err}
 }

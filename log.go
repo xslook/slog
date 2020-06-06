@@ -156,7 +156,7 @@ type Logger struct {
 	core *zap.Logger
 }
 
-var _gLogger = newNoOp()
+var gLogger = newNoOp()
 
 func newNoOp() *Logger {
 	return &Logger{
@@ -218,13 +218,13 @@ const (
 func In(ctx context.Context) *Logger {
 	val := ctx.Value(traceKey)
 	if val == nil {
-		return _gLogger.With(String(dftTraceKey, newTraceID()))
+		return gLogger.With(String(dftTraceKey, newTraceID()))
 	}
 	v, ok := val.(string)
 	if !ok {
-		return _gLogger.With(String(dftTraceKey, newTraceID()))
+		return gLogger.With(String(dftTraceKey, newTraceID()))
 	}
-	return _gLogger.With(String(dftTraceKey, v))
+	return gLogger.With(String(dftTraceKey, v))
 }
 
 // With fields
@@ -242,38 +242,46 @@ func (log *Logger) Named(name string) *Logger {
 }
 
 // Debug log
-func (log *Logger) Debug(msg string, fields ...Field) {
-	log.core.Debug(msg, fields...)
+func (log *Logger) Debug(msg string) {
+	log.core.Debug(msg)
 }
 
 // Info log
-func (log *Logger) Info(msg string, fields ...Field) {
-	log.core.Info(msg, fields...)
+func (log *Logger) Info(msg string) {
+	log.core.Info(msg)
+}
+
+func (log *Logger) Infof(template string, args ...interface{}) {
+	log.core.Sugar().Infof(template, args...)
 }
 
 // Warn log
-func (log *Logger) Warn(msg string, fields ...Field) {
-	log.core.Warn(msg, fields...)
+func (log *Logger) Warn(msg string) {
+	log.core.Warn(msg)
+}
+
+func (log *Logger) Warnf(template string, args ...interface{}) {
+	log.core.Sugar().Warnf(template, args...)
 }
 
 // Error log
-func (log *Logger) Error(msg string, fields ...Field) {
-	log.core.Error(msg, fields...)
+func (log *Logger) Error(msg string) {
+	log.core.Error(msg)
 }
 
 // DPanic log
-func (log *Logger) DPanic(msg string, fields ...Field) {
-	log.core.DPanic(msg, fields...)
+func (log *Logger) DPanic(msg string) {
+	log.core.DPanic(msg)
 }
 
 // Panic log
-func (log *Logger) Panic(msg string, fields ...Field) {
-	log.core.Panic(msg, fields...)
+func (log *Logger) Panic(msg string) {
+	log.core.Panic(msg)
 }
 
 // Fatal log
-func (log *Logger) Fatal(msg string, fields ...Field) {
-	log.core.Fatal(msg, fields...)
+func (log *Logger) Fatal(msg string) {
+	log.core.Fatal(msg)
 }
 
 // Sync flush buffered logs
@@ -283,120 +291,115 @@ func (log *Logger) Sync() error {
 
 // With zap fields
 func With(fileds ...Field) *Logger {
-	return _gLogger.With(fileds...)
+	return gLogger.With(fileds...)
 }
 
 // Print log
-func Print(args ...interface{}) {
-	zap.S().Info(args...)
+func Print(msg string) {
+	gLogger.Info(msg)
 }
 
 // Printf log
 func Printf(template string, args ...interface{}) {
-	zap.S().Infof(template, args...)
+	gLogger.Infof(template, args...)
 }
 
 // Println log
-func Println(args ...interface{}) {
-	zap.S().Info(args...)
+func Println(msg string) {
+	gLogger.Info(msg)
 }
 
 // Fatal log
-func Fatal(args ...interface{}) {
-	zap.S().Fatal(args...)
+func Fatal(msg string) {
+	gLogger.Fatal(msg)
 }
 
 // Fatalf log
 func Fatalf(template string, args ...interface{}) {
-	zap.S().Fatalf(template, args...)
+	gLogger.core.Sugar().Fatalf(template, args...)
 }
 
 // Fatalw log
 func Fatalw(msg string, keysAndValues ...interface{}) {
-	zap.S().Fatalw(msg, keysAndValues...)
+	gLogger.core.Sugar().Fatalw(msg, keysAndValues...)
 }
 
 // Fatalln log
 func Fatalln(args ...interface{}) {
-	zap.S().Fatal(args...)
+	gLogger.core.Sugar().Fatal(args...)
 }
 
 // Panic log
-func Panic(args ...interface{}) {
-	zap.S().Panic(args...)
+func Panic(msg string) {
+	gLogger.Panic(msg)
 }
 
 // Panicf log
 func Panicf(template string, args ...interface{}) {
-	zap.S().Panicf(template, args...)
+	gLogger.core.Sugar().Panicf(template, args...)
 }
 
 // Panicw log
 func Panicw(msg string, keysAndValues ...interface{}) {
-	zap.S().Panicw(msg, keysAndValues...)
-}
-
-// Panicln log
-func Panicln(args ...interface{}) {
-	zap.S().Panic(args...)
+	gLogger.core.Sugar().Panicw(msg, keysAndValues...)
 }
 
 // Debug log
-func Debug(args ...interface{}) {
-	zap.S().Debug(args...)
+func Debug(msg string) {
+	gLogger.Debug(msg)
 }
 
 // Debugf log
 func Debugf(template string, args ...interface{}) {
-	zap.S().Debugf(template, args...)
+	gLogger.core.Sugar().Debugf(template, args...)
 }
 
 // Debugw log
 func Debugw(msg string, keysAndValues ...interface{}) {
-	zap.S().Debugw(msg, keysAndValues...)
+	gLogger.core.Sugar().Debugw(msg, keysAndValues...)
 }
 
 // Info log
-func Info(args ...interface{}) {
-	zap.S().Info(args...)
+func Info(msg string) {
+	gLogger.Info(msg)
 }
 
 // Infof log
 func Infof(template string, args ...interface{}) {
-	zap.S().Infof(template, args...)
+	gLogger.Infof(template, args...)
 }
 
 // Infow log
 func Infow(msg string, keysAndValues ...interface{}) {
-	zap.S().Infow(msg, keysAndValues...)
+	gLogger.core.Sugar().Infow(msg, keysAndValues...)
 }
 
 // Warn log
-func Warn(args ...interface{}) {
-	zap.S().Warn(args...)
+func Warn(msg string) {
+	gLogger.Warn(msg)
 }
 
 // Warnf log
 func Warnf(template string, args ...interface{}) {
-	zap.S().Warnf(template, args...)
+	gLogger.Warnf(template, args...)
 }
 
 // Warnw log
 func Warnw(msg string, keysAndValues ...interface{}) {
-	zap.S().Warnw(msg, keysAndValues...)
+	gLogger.core.Sugar().Warnw(msg, keysAndValues...)
 }
 
 // Error log
-func Error(args ...interface{}) {
-	zap.S().Error(args...)
+func Error(msg string) {
+	gLogger.Error(msg)
 }
 
 // Errorf log
 func Errorf(template string, args ...interface{}) {
-	zap.S().Errorf(template, args...)
+	gLogger.core.Sugar().Errorf(template, args...)
 }
 
 // Errorw log
 func Errorw(msg string, keysAndValues ...interface{}) {
-	zap.S().Errorw(msg, keysAndValues...)
+	gLogger.core.Sugar().Errorw(msg, keysAndValues...)
 }
