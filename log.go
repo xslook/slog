@@ -41,20 +41,23 @@ func initLogger(opts *Option) (*zap.Logger, error) {
 
 	var outWriter zapcore.WriteSyncer
 	if opts.Filename != "" {
-		maxSize := opts.MaxSize
-		if maxSize < 1 {
-			maxSize = 1
-		}
-		maxBackups := opts.MaxBackups
-		if maxBackups < 0 {
-			maxBackups = 0
-		}
-		maxAge := opts.MaxAge
-		if maxAge < 0 {
-			maxAge = 0
-		}
 		if opts.Dir == "" {
 			opts.Dir = "."
+		}
+		path := filepath.Join(opts.Dir, opts.Filename)
+		info, err := os.Stat(path)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return nil, err
+			}
+			fs, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+			if err != nil {
+				return nil, err
+			}
+			defer fs.Close()
+		}
+		if info.IsDir() {
+			return nil, nil
 		}
 	}
 
@@ -92,7 +95,7 @@ func initLogger(opts *Option) (*zap.Logger, error) {
 		NameKey:        "logger",
 		CallerKey:      "caller",
 		MessageKey:     "msg",
-		StacktraceKey:  "stacktrace",
+		StacktraceKey:  "stack",
 		LineEnding:     zapcore.DefaultLineEnding,
 		EncodeLevel:    zapcore.LowercaseLevelEncoder,
 		EncodeTime:     zapcore.ISO8601TimeEncoder,
@@ -112,15 +115,8 @@ type Option struct {
 	Dir       string
 	Filename  string
 	Level     string
-	Rotate    bool // rotate log file or not
 	LocalTime bool
 	Stdout    bool
-
-	FlushTick time.Duration
-
-	MaxSize    int // The max size of single log file, default 200
-	MaxBackups int // The max backup number of files
-	MaxAge     int // The max keep days of log files
 }
 
 // Init a logger
@@ -139,14 +135,11 @@ func defaultOption() *Option {
 	level := os.Getenv("LOG_LEVEL")
 	stdout := filename == ""
 	opts := &Option{
-		Dir:        dir,
-		Filename:   filename,
-		Level:      level,
-		LocalTime:  true,
-		Stdout:     stdout,
-		MaxSize:    200,
-		MaxAge:     2,
-		MaxBackups: 2,
+		Dir:       dir,
+		Filename:  filename,
+		Level:     level,
+		LocalTime: true,
+		Stdout:    stdout,
 	}
 	return opts
 }
