@@ -10,59 +10,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-func normalizeFilepath(dir, filename string) (string, error) {
-	if dirInfo, err := os.Stat(dir); err != nil {
-		if !os.IsNotExist(err) {
-			return "", err
-		}
-		if err = os.MkdirAll(dir, 0755); err != nil {
-			return "", err
-		}
-	} else if !dirInfo.IsDir() {
-		return "", fmt.Errorf("Filepath %s is not a valid directory", dir)
-	}
-	fs := filepath.Join(dir, filename)
-	_, err := os.Stat(fs)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return "", err
-		}
-	}
-	return fs, nil
-}
-
-func initLogger(opts *Option) (*zap.Logger, error) {
-
-	var outWriter zapcore.WriteSyncer
-	if opts.Filename != "" {
-		if opts.Dir == "" {
-			opts.Dir = "."
-		}
-		path := filepath.Join(opts.Dir, opts.Filename)
-		info, err := os.Stat(path)
-		if err != nil {
-			if !os.IsNotExist(err) {
-				return nil, err
-			}
-			fs, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-			if err != nil {
-				return nil, err
-			}
-			defer fs.Close()
-		}
-		if info.IsDir() {
-			return nil, nil
-		}
-	}
+func initLogger(level string, fw zapcore.WriteSyncer, stdout bool) (*zap.Logger, error) {
 
 	var logLevel zapcore.Level
-	switch strings.ToLower(opts.Level) {
+	switch strings.ToLower(level) {
 	case "debug":
 		logLevel = zapcore.DebugLevel
 	case "info":
@@ -77,15 +35,14 @@ func initLogger(opts *Option) (*zap.Logger, error) {
 		logLevel = zapcore.InfoLevel
 	}
 
-	if opts.Stdout {
-		if outWriter == nil {
-			outWriter = zapcore.AddSync(os.Stdout)
+	if stdout {
+		if fw == nil {
+			fw = zapcore.AddSync(os.Stdout)
 		} else {
-			outWriter = zapcore.NewMultiWriteSyncer(outWriter, os.Stdout)
+			fw = zapcore.NewMultiWriteSyncer(fw, os.Stdout)
 		}
 	}
-
-	if outWriter == nil {
+	if fw == nil {
 		return nil, errors.New("No output writer")
 	}
 
@@ -102,58 +59,124 @@ func initLogger(opts *Option) (*zap.Logger, error) {
 		EncodeDuration: zapcore.StringDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
-	core := zapcore.NewCore(zapcore.NewJSONEncoder(encoderConfig), outWriter, logLevel)
+	core := zapcore.NewCore(zapcore.NewJSONEncoder(encoderConfig), fw, logLevel)
 	samplerCore := zapcore.NewSampler(core, time.Second, 100, 100)
 	logger := zap.New(samplerCore, zap.AddCaller(), zap.AddCallerSkip(1), zap.AddStacktrace(zap.DPanicLevel))
-	zap.ReplaceGlobals(logger)
 
 	return logger, nil
 }
 
-// Option for logger
-type Option struct {
-	Dir       string
-	Filename  string
-	Level     string
-	LocalTime bool
-	Stdout    bool
+type noCopy struct{}
+
+func (*noCopy) Lock()   {}
+func (*noCopy) Unlock() {}
+
+type fileWriter struct {
+	mux    sync.Mutex
+	noCopy noCopy
+
+	dir  string
+	file string
+
+	w *os.File
 }
 
-// Init a logger
-func Init(opts *Option) error {
-	_, err := initLogger(opts)
-	return err
-}
-
-func defaultOption() *Option {
-	dir := os.Getenv("LOG_DIR")
+func openFile(dir, filename string) (*os.File, error) {
+	if filename == "" {
+		return nil, nil
+	}
 	if dir == "" {
 		dir = "."
 	}
-	filename := os.Getenv("LOG_FILE")
-
-	level := os.Getenv("LOG_LEVEL")
-	stdout := filename == ""
-	opts := &Option{
-		Dir:       dir,
-		Filename:  filename,
-		Level:     level,
-		LocalTime: true,
-		Stdout:    stdout,
+	if dirInfo, err := os.Stat(dir); err != nil {
+		return nil, err
+	} else if !dirInfo.IsDir() {
+		return nil, fmt.Errorf("Path %s is not a valid directory", dir)
 	}
-	return opts
+
+	path := filepath.Join(dir, filename)
+	info, err := os.Stat(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+	} else if info.IsDir() {
+		return nil, fmt.Errorf("path %s is a directory", path)
+	}
+
+	var mode os.FileMode = 0644
+	if err == nil && info != nil && info.Mode().IsRegular() {
+		mode = info.Mode()
+	}
+	fs, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, mode)
+	if err != nil {
+		return nil, err
+	}
+	return fs, nil
+}
+
+func newFileWriter(dir, filename string) (*fileWriter, error) {
+	fs, err := openFile(dir, filename)
+	if err != nil {
+		return nil, err
+	}
+	if fs == nil {
+		return nil, nil
+	}
+	fw := &fileWriter{
+		dir:  dir,
+		file: filename,
+		w:    fs,
+	}
+	return fw, nil
+}
+func (f *fileWriter) Write(p []byte) (n int, err error) {
+	f.mux.Lock()
+	defer f.mux.Unlock()
+	return f.w.Write(p)
+}
+
+func (f *fileWriter) Reload() error {
+	if f == nil || f.w == nil {
+		return nil
+	}
+
+	f.mux.Lock()
+	defer f.mux.Unlock()
+	if err := f.w.Close(); err != nil {
+		return err
+	}
+	w, err := openFile(f.dir, f.file)
+	if err != nil {
+		return err
+	}
+	f.w = w
+	return nil
+}
+
+func (f *fileWriter) Sync() error {
+	if f == nil || f.w == nil {
+		return nil
+	}
+	return f.w.Sync()
 }
 
 // Logger ...
 type Logger struct {
 	core *zap.Logger
+
+	fw *fileWriter // file writer
 }
 
-var gLogger = newNoOp()
+var gLogger *Logger
 
-func newNoOp() *Logger {
-	return &Logger{
-		core: zap.L(),
+func init() {
+	core, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	gLogger = &Logger{
+		core: core,
 	}
 }
 
@@ -166,15 +189,33 @@ func newTraceID() string {
 	return hex.EncodeToString(bts[:])
 }
 
+// Option for logger
+type Option struct {
+	Dir       string
+	Filename  string
+	Level     string
+	LocalTime bool
+	Stdout    bool
+}
+
 // New a logger
 func New(opt *Option) (*Logger, error) {
-	core, err := initLogger(opt)
+	fw, err := newFileWriter(opt.Dir, opt.Filename)
+	if err != nil {
+		return nil, err
+	}
+	core, err := initLogger(opt.Level, fw, opt.Stdout)
 	if err != nil {
 		return nil, err
 	}
 	logger := &Logger{
 		core: core,
+		fw:   fw,
 	}
+
+	// Replace gLogger with current new logger
+	gLogger = logger
+
 	return logger, nil
 }
 
@@ -200,6 +241,14 @@ func (log *Logger) Mix(ctx context.Context) context.Context {
 func Trace(ctx context.Context) context.Context {
 	id := newTraceID()
 	return context.WithValue(ctx, traceKey, id)
+}
+
+// Reload to read file
+func Reload() error {
+	if gLogger != nil && gLogger.fw != nil {
+		return gLogger.fw.Reload()
+	}
+	return nil
 }
 
 const (
