@@ -225,7 +225,7 @@ func (log *Logger) clone() *Logger {
 	return &cp
 }
 
-type traceType string
+type traceType struct{}
 
 var (
 	traceKey traceType
@@ -243,6 +243,17 @@ func Trace(ctx context.Context) context.Context {
 	return context.WithValue(ctx, traceKey, id)
 }
 
+// TraceID returns the current context trace ID
+func TraceID(ctx context.Context) string {
+	val := ctx.Value(traceKey)
+	if val != nil {
+		if value, ok := val.(string); ok {
+			return value
+		}
+	}
+	return ""
+}
+
 // Reload to read file
 func Reload() error {
 	if gLogger != nil && gLogger.fw != nil {
@@ -252,8 +263,8 @@ func Reload() error {
 }
 
 const (
-	dftTraceKey   = "_s"
-	dftLatencyKey = "_t"
+	dftTraceKey   = "zgtrace"
+	dftLatencyKey = "zglatency"
 )
 
 // In try extract logger instance from context
