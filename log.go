@@ -165,6 +165,11 @@ func (f *fileWriter) Sync() error {
 type Logger struct {
 	core *zap.Logger
 
+	// some original configurations
+	dir, filename string
+	level         string
+	stdout        bool
+
 	fw *fileWriter // file writer
 }
 
@@ -190,28 +195,84 @@ func newTraceID() string {
 }
 
 // Option for logger
-type Option struct {
-	Dir       string
-	Filename  string
-	Level     string
-	LocalTime bool
-	Stdout    bool
+type Option func(*Logger) error
+
+// File option set logger's output file directory and filename
+func File(dir, filename string) Option {
+	return func(logger *Logger) error {
+		if dir != "" {
+			logger.dir = dir
+		}
+		if filename != "" {
+			logger.filename = filename
+		}
+		return nil
+	}
+}
+
+var allowedLevels = []string{
+	"debug",
+	"info",
+	"warn",
+	"error",
+	"panic",
+	"fatal",
+}
+
+var (
+	ErrInvalidLevel = errors.New("Invalid log level")
+)
+
+// Level option set logger's log level
+func Level(lvl string) Option {
+	return func(logger *Logger) error {
+		var valid bool
+		for _, al := range allowedLevels {
+			if lvl == al {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return ErrInvalidLevel
+		}
+		logger.level = lvl
+		return nil
+	}
+}
+
+// Stdout option set logger output to stdout
+func Stdout() Option {
+	return func(logger *Logger) error {
+		logger.stdout = true
+		return nil
+	}
 }
 
 // New a logger
-func New(opt *Option) (*Logger, error) {
-	fw, err := newFileWriter(opt.Dir, opt.Filename)
+func New(opts ...Option) (*Logger, error) {
+	logger := new(Logger)
+	for _, opt := range opts {
+		if err := opt(logger); err != nil {
+			return nil, err
+		}
+	}
+
+	var fw *fileWriter
+	var err error
+	if logger.filename != "" {
+		fw, err = newFileWriter(logger.dir, logger.filename)
+		if err != nil {
+			return nil, err
+		}
+	}
+	logger.fw = fw
+
+	core, err := initLogger(logger.level, fw, logger.stdout)
 	if err != nil {
 		return nil, err
 	}
-	core, err := initLogger(opt.Level, fw, opt.Stdout)
-	if err != nil {
-		return nil, err
-	}
-	logger := &Logger{
-		core: core,
-		fw:   fw,
-	}
+	logger.core = core
 
 	// Replace gLogger with current new logger
 	gLogger = logger
