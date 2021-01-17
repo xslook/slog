@@ -55,7 +55,7 @@ func initLogger(level string, fw zapcore.WriteSyncer, stdout bool) (*zap.Logger,
 		StacktraceKey:  "stack",
 		LineEnding:     zapcore.DefaultLineEnding,
 		EncodeLevel:    zapcore.LowercaseLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeTime:     zapcore.RFC3339TimeEncoder,
 		EncodeDuration: zapcore.StringDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
@@ -130,6 +130,7 @@ func newFileWriter(dir, filename string) (*fileWriter, error) {
 	}
 	return fw, nil
 }
+
 func (f *fileWriter) Write(p []byte) (n int, err error) {
 	f.mux.Lock()
 	defer f.mux.Unlock()
@@ -292,15 +293,14 @@ var (
 	traceKey traceType
 )
 
-// Mix create a new context wrap this logger
-func (log *Logger) Mix(ctx context.Context) context.Context {
+// Trace create a new context mixed with logger
+func Trace(ctx context.Context) context.Context {
 	id := newTraceID()
 	return context.WithValue(ctx, traceKey, id)
 }
 
-// Trace create a new context mixed with logger
-func Trace(ctx context.Context) context.Context {
-	id := newTraceID()
+// TraceWith create a new context with a given trace ID
+func TraceWith(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, traceKey, id)
 }
 
