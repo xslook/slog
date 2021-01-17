@@ -17,19 +17,27 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+const (
+	logLevelDebug = "debug"
+	logLevelInfo  = "info"
+	logLevelWarn  = "warn"
+	logLevelError = "error"
+	logLevelFatal = "fatal"
+)
+
 func initLogger(level string, fw zapcore.WriteSyncer, stdout bool) (*zap.Logger, error) {
 
 	var logLevel zapcore.Level
 	switch strings.ToLower(level) {
-	case "debug":
+	case logLevelDebug:
 		logLevel = zapcore.DebugLevel
-	case "info":
+	case logLevelInfo:
 		logLevel = zapcore.InfoLevel
-	case "warn":
+	case logLevelWarn:
 		logLevel = zapcore.WarnLevel
-	case "error":
+	case logLevelError:
 		logLevel = zapcore.ErrorLevel
-	case "fatal":
+	case logLevelFatal:
 		logLevel = zapcore.FatalLevel
 	default:
 		logLevel = zapcore.InfoLevel
@@ -177,7 +185,7 @@ type Logger struct {
 var gLogger *Logger
 
 func init() {
-	core, err := zap.NewDevelopment()
+	core, err := initLogger(logLevelInfo, nil, true)
 	if err != nil {
 		panic(err)
 	}
@@ -212,12 +220,11 @@ func File(dir, filename string) Option {
 }
 
 var allowedLevels = []string{
-	"debug",
-	"info",
-	"warn",
-	"error",
-	"panic",
-	"fatal",
+	logLevelDebug,
+	logLevelInfo,
+	logLevelWarn,
+	logLevelError,
+	logLevelFatal,
 }
 
 var (

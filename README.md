@@ -33,6 +33,8 @@ func main() {
 ```
 It will log somethings like below:
 ```
+{"level":"info","ts":"2021-01-17T21:18:42+08:00","caller":"example/main.go:10","msg":"do things","zgtrace":"93afab744b0139d6511353d92fce6fc5","num":1}
+{"level":"info","ts":"2021-01-17T21:18:42+08:00","caller":"example/main.go:10","msg":"do things","zgtrace":"93afab744b0139d6511353d92fce6fc5","num":2}
 ```
 
 
