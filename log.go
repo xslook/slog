@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -44,13 +45,13 @@ func initLogger(level string, fw zapcore.WriteSyncer, stdout bool) (*zap.Logger,
 	}
 
 	if stdout {
-		if fw == nil {
+		if isNil(fw) {
 			fw = zapcore.AddSync(os.Stdout)
 		} else {
 			fw = zapcore.NewMultiWriteSyncer(fw, os.Stdout)
 		}
 	}
-	if fw == nil {
+	if isNil(fw) {
 		return nil, errors.New("No output writer")
 	}
 
@@ -72,6 +73,10 @@ func initLogger(level string, fw zapcore.WriteSyncer, stdout bool) (*zap.Logger,
 	logger := zap.New(samplerCore, zap.AddCaller(), zap.AddCallerSkip(1), zap.AddStacktrace(zap.DPanicLevel))
 
 	return logger, nil
+}
+
+func isNil(i interface{}) bool {
+	return i == nil || reflect.ValueOf(i).IsNil()
 }
 
 type noCopy struct{}
@@ -273,8 +278,8 @@ func New(opts ...Option) (*Logger, error) {
 		if err != nil {
 			return nil, err
 		}
+		logger.fw = fw
 	}
-	logger.fw = fw
 
 	core, err := initLogger(logger.level, fw, logger.stdout)
 	if err != nil {
